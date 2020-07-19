@@ -1,9 +1,5 @@
-global.js
-/public
 node_modules
-/logs
 nohup.out
-/www
 .idea
 .vscode
 !.eslintrc.json

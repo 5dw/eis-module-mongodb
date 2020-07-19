@@ -7,7 +7,7 @@ const mongoose = require('mongoose');
  * @param ex
  * @returns {*}
  */
-function unifyError (ex) {
+function unifyError(ex) {
     if (typeof ex === 'string') return ex;
 
     if (ex.errors) {
@@ -24,7 +24,7 @@ function unifyError (ex) {
 
     switch (ex.name) {
         case 'CastError':
-            return ex.value + '不是合法的值';
+            return ex.value + ' is not a valida value';
         default:
             return ex.message;
     }
@@ -160,7 +160,7 @@ const generateData = async function (model, body, doc = undefined, fields = []) 
                         //     }
                         //     break;
                         default:
-                            throw path + '不是合法的值！';
+                            throw path + ' is not a valid value!';
                     }
                 }
 
@@ -169,8 +169,10 @@ const generateData = async function (model, body, doc = undefined, fields = []) 
             case 'number':
                 // 如果是数字，做转换。
                 // 替换中间的逗号，并清楚两边的空格
-                value = value.toString().trim().replace(',', '');
-                value = Number(value);
+                if (typeof value !== 'undefined' && value !== null) {
+                    value = value.toString().trim().replace(',', '');
+                    value = Number(value);
+                }
                 parent[path] = value;
                 break;
             default:
@@ -251,7 +253,7 @@ module.exports = (app) => {
                     app.logger.debug(ex.message);
                     if (errorCallback) return errorCallback();
                     else {
-                        res.makeError(500, unifyError(ex));
+                        res.makeError(500, unifyError(ex), mdl);
                         if (next)
                             return next('route');
                         else return;
@@ -314,7 +316,7 @@ module.exports = (app) => {
                     app.logger.debug(ex.message);
                     if (errorCallback) return errorCallback();
                     else {
-                        res.makeError(500, unifyError(ex));
+                        res.makeError(500, unifyError(ex), mdl);
                         if (next)
                             return next('route');
                         else return;
@@ -347,7 +349,7 @@ module.exports = (app) => {
                     app.logger.debug(ex.message);
                     if (errorCallback) return errorCallback();
                     else {
-                        res.makeError(500, unifyError(ex));
+                        res.makeError(500, unifyError(ex), mdl);
                         if (next)
                             return next('route');
                         else return;
@@ -381,7 +383,7 @@ module.exports = (app) => {
                 let body = (res.locals.body && Object.keys(res.locals.body).length) ? res.locals.body : req.body;
 
                 if (!body || Object.keys(body).length === 0) {
-                    res.makeError(400, '没有可创建的信息！');
+                    res.makeError(400, 'Nothing to create!'), mdl;
                     if (next)
                         return next('route');
                     else return;
@@ -394,7 +396,7 @@ module.exports = (app) => {
                     delete res.locals.body;
                 } catch (ex) {
                     app.logger.debug(ex.message);
-                    res.makeError(500, unifyError(ex));
+                    res.makeError(500, unifyError(ex), mdl);
                     if (next)
                         return next('route');
                     else return;
@@ -427,7 +429,7 @@ module.exports = (app) => {
                 let body = (res.locals.body && Object.keys(res.locals.body).length) ? res.locals.body : req.body;
 
                 if (!body || Object.keys(body).length === 0) {
-                    res.makeError(400, '没有可更新的信息！');
+                    res.makeError(400, 'Nothing to update!', mdl);
                     if (next)
                         return next('route');
                     else return;
@@ -450,15 +452,15 @@ module.exports = (app) => {
                         delete res.locals.doc;
                     } catch (ex) {
                         app.logger.debug(ex.message);
-                        res.makeError(500, unifyError(ex));
+                        res.makeError(500, unifyError(ex), mdl);
                         if (next)
                             return next('route');
                         else return;
                     }
                 }
                 else {
-                    app.logger.debug('找不到可更新的文档： ' + id);
-                    res.makeError(400, '找不到可更新的文档！');
+                    app.logger.debug('Cannot find the document to update: ' + id);
+                    res.makeError(400, 'Cannot find the document to update!', mdl);
                     if (next)
                         return next('route');
                 }
@@ -496,7 +498,7 @@ module.exports = (app) => {
                     delete res.locals.filter;
                 } catch (ex) {
                     app.logger.debug(ex.message);
-                    res.makeError(500, unifyError(ex));
+                    res.makeError(500, unifyError(ex), mdl);
                     if (next)
                         return next('route');
                     else return;

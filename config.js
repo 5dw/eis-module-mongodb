@@ -3,6 +3,7 @@ const DB_PORT = '27017'
 const DB_NAME = 'eis'
 
 module.exports = {
+    forceDate: false,
     default: {
         host: DB_HOST,
         port: DB_PORT,

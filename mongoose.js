@@ -102,10 +102,15 @@ module.exports = (app, mdl) => {
 
     //  mongoose.Promise = global.Promise;//如果有promise的问题，可以用这个试试
     app.logger.debug(`正在连接数据库(${process.env.NODE_ENV}): ${connectionString}`)
-    mongoose.connect(connectionString, { useNewUrlParser: true, autoIndex: false });//连接mongodb数据库
+
+    const tryConnect = () => {
+        mongoose.connect(connectionString, { useNewUrlParser: true, autoIndex: false });//连接mongodb数据库
+    }
+    tryConnect();
 
     // 实例化连接对象
     let db = mongoose.connection;
+    db.tryConnect = tryConnect;
 
     db.on('error', (err) => {
         app.logger.error('连接数据库失败!! ' + err);
@@ -191,8 +196,8 @@ module.exports = (app, mdl) => {
             if (!d) return;
 
             // add default fields if not exist yet
-            d['LastUpdateDate'] || (d['LastUpdateDate'] = { type: "Date" })
-            d['CreatedDate'] || (d['CreatedDate'] = { type: "Date" })
+            d['LastUpdateDate'] || (d['LastUpdateDate'] = { type: "Date" });
+            d['CreatedDate'] || (d['CreatedDate'] = { type: "Date" });
             d['id'] = {
                 type: "String",
                 unique: true,
@@ -202,15 +207,20 @@ module.exports = (app, mdl) => {
                 // set: function () {
                 //     return this._id.toString();
                 // }
-            }
+            };
+            d['Saved'] || (d['Saved'] = { type: "Boolean" });
+            d['Deleted'] || (d['Deleted'] = { type: "Boolean", default: false });
 
             // change the data type according to the string
-            function processFieldSchema (d) {
+            function processFieldSchema(d) {
                 Object.keys(d).forEach(dk => {
                     if (d[dk] && d[dk].type && typeof d[dk].type === 'string') {
                         switch (d[dk].type.toLowerCase()) {
                             case 'string':
                                 d[dk].type = String;
+                                break;
+                            case 'boolean':
+                                d[dk].type = Boolean;
                                 break;
                             case 'date':
                                 d[dk].type = Date;
@@ -229,6 +239,10 @@ module.exports = (app, mdl) => {
                             case 'object':
                                 d[dk].type = mongoose.Schema.Types.Mixed;
                                 break;
+                        }
+
+                        if (d[dk].refer) {
+                            d[dk].ref = d[dk].refer;
                         }
                     } else if (Array.isArray(d[dk])) {
                         // is an array
@@ -251,6 +265,15 @@ module.exports = (app, mdl) => {
                     d = Object.merge(d, appModel.schemaDefinition);
                 }
             })
+
+            // extend with the extend schema defined in config
+            if (config && config.extendSchema) {
+                const extendDef = config.extendSchema[k];
+
+                if (extendDef) {
+                    d = Object.assign(d, extendDef)
+                }
+            }
 
             const model = {};
             model.modelShortName = k;
@@ -290,28 +313,49 @@ module.exports = (app, mdl) => {
                  * 在更新数据文档时自动设置LastUpdateDate到当前的时间，这样其他代码中就不需要再特别设置此数据。
                  */
                 schemaObject[schemaName].pre("save", function (next) {
-                    this.LastUpdateDate = new Date();
+                    if (config.forceDate || !this.LastUpdateDate)
+                        this.LastUpdateDate = new Date();
 
-                    if (this.isNew)
+                    if (this.isNew && (config.forceDate || !this.CreatedDate))
                         this.CreatedDate = new Date();
+
+                    if (!this.isNew)
+                        this.Saved = true;
 
                     return next();
                 });
                 schemaObject[schemaName].pre("update", function (next) {
-                    this.LastUpdateDate = new Date();
+                    if (config.forceDate || !this.LastUpdateDate)
+                        this.LastUpdateDate = new Date();
+
+                    this.Saved = true;
+
                     return next();
                 });
                 schemaObject[schemaName].pre("updateOne", function (next) {
-                    this.LastUpdateDate = new Date();
+                    if (config.forceDate || !this.LastUpdateDate)
+                        this.LastUpdateDate = new Date();
+
+                    this.Saved = true;
+
                     return next();
                 });
                 schemaObject[schemaName].pre("updateMany", function (next) {
-                    this.LastUpdateDate = new Date();
+                    if (config.forceDate || !this.LastUpdateDate)
+                        this.LastUpdateDate = new Date();
+
+                    this.Saved = true;
+
                     return next();
                 });
 
                 schemaObject[schemaName].pre("create", function (next) {
-                    this.CreateDate = new Date();
+                    if (config.forceDate || !this.CreatedDate)
+                        this.CreatedDate = new Date();
+
+                    if (config.forceDate || !this.LastUpdateDate)
+                        this.LastUpdateDate = new Date();
+
                     return next();
                 });
 
@@ -329,8 +373,9 @@ module.exports = (app, mdl) => {
         })
     };
 
-    db.dataProcessMiddleware = async function (req, res, next) {
+    async function _dataProcessMiddleware(req, res, next) {
         if (!res.locals.CURD || res.locals.CURD.length <= 0) return next();
+        if (res.locals.err) return next();
 
         const mongooseDbHelper = require('./dbhelper')(app);
 
@@ -339,46 +384,50 @@ module.exports = (app, mdl) => {
 
             const op = res.locals.CURD[i];
 
-            // restore the context
-            res.locals.filter = op.ctx.filter;
-            res.locals.options = op.ctx.options;
-            res.locals.fields = op.ctx.fields;
-            res.locals.body = op.ctx.body;
-            res.locals.doc = op.ctx.doc;
+            if (op.model) {
+                // restore the context
+                res.locals.filter = op.ctx.filter;
+                res.locals.options = op.ctx.options;
+                res.locals.fields = op.ctx.fields;
+                res.locals.body = op.ctx.body;
+                res.locals.doc = op.ctx.doc;
 
-            // do the real db operations according to the given method
-            // TODO: add transaction
-            switch (op.method.toLowerCase()) {
-                case 'r':
-                    await mongooseDbHelper.FindDocuments(op.model)(req, res);
-                    break;
-                case 'ra':
-                    await mongooseDbHelper.FindAllDocuments(op.model)(req, res);
-                    break;
-                case 'c':
-                    await mongooseDbHelper.CreateDocument(op.model)(req, res);
-                    break;
-                case 'u':
-                    await mongooseDbHelper.UpdateDocument(op.model)(req, res);
-                    break;
-                case 'd':
-                    await mongooseDbHelper.DeleteDocument(op.model)(req, res);
-                    break;
-                case 'a':
-                    await mongooseDbHelper.Aggregate(op.model)(req, res);
-                    break;
-                default:
-                    break;
+                // do the real db operations according to the given method
+                // TODO: add transaction
+                switch (op.method.toLowerCase()) {
+                    case 'r':
+                        await mongooseDbHelper.FindDocuments(op.model)(req, res);
+                        break;
+                    case 'ra':
+                        await mongooseDbHelper.FindAllDocuments(op.model)(req, res);
+                        break;
+                    case 'c':
+                        await mongooseDbHelper.CreateDocument(op.model)(req, res);
+                        break;
+                    case 'u':
+                        await mongooseDbHelper.UpdateDocument(op.model)(req, res);
+                        break;
+                    case 'd':
+                        await mongooseDbHelper.DeleteDocument(op.model)(req, res);
+                        break;
+                    case 'a':
+                        await mongooseDbHelper.Aggregate(op.model)(req, res);
+                        break;
+                    default:
+                        break;
+                }
             }
 
             // call callbacks in order
             for (let j = 0; j < op.cbs.length; j += 1) {
-                await op.cbs[j](req, res);
+                await op.cbs[j](req, res, op);
             }
         }
 
         return next();
-    };
+    }
+
+    db.dataProcessMiddleware = _dataProcessMiddleware;
 
     /**
      * Replace the default express.Router funtion so that we can attach all the db helper function to the router instance.
