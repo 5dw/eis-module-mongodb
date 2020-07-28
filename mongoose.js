@@ -196,8 +196,8 @@ module.exports = (app, mdl) => {
             if (!d) return;
 
             // add default fields if not exist yet
-            d['LastUpdateDate'] || (d['LastUpdateDate'] = { type: "Date" });
-            d['CreatedDate'] || (d['CreatedDate'] = { type: "Date" });
+            d['LastUpdateDate'] || (d['LastUpdateDate'] = { type: "Date", index: true });
+            d['CreatedDate'] || (d['CreatedDate'] = { type: "Date", index: true });
             d['id'] = {
                 type: "String",
                 unique: true,
