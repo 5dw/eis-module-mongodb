@@ -293,6 +293,13 @@ module.exports = (app, mdl) => {
      */
     db.initModuleModel = function (app, mdl, mList) {
         const modelList = mList || mdl.models;
+        let forceDate;
+
+        if(mdl && mdl.config && typeof mdl.config.forceDate === 'boolean'){
+            forceDate = mdl.config.forceDate;
+        } else {
+            forceDate = config.forceDate;
+        }
 
         Object.keys(modelList).forEach(mk => {
             const model = app.models[mk];
@@ -313,10 +320,10 @@ module.exports = (app, mdl) => {
                  * 在更新数据文档时自动设置LastUpdateDate到当前的时间，这样其他代码中就不需要再特别设置此数据。
                  */
                 schemaObject[schemaName].pre("save", function (next) {
-                    if (config.forceDate || !this.LastUpdateDate)
+                    if (forceDate || !this.LastUpdateDate)
                         this.LastUpdateDate = new Date();
 
-                    if (this.isNew && (config.forceDate || !this.CreatedDate))
+                    if (this.isNew && (forceDate || !this.CreatedDate))
                         this.CreatedDate = new Date();
 
                     if (!this.isNew)
@@ -325,7 +332,7 @@ module.exports = (app, mdl) => {
                     return next();
                 });
                 schemaObject[schemaName].pre("update", function (next) {
-                    if (config.forceDate || !this.LastUpdateDate)
+                    if (forceDate || !this.LastUpdateDate)
                         this.LastUpdateDate = new Date();
 
                     this.Saved = true;
@@ -333,7 +340,7 @@ module.exports = (app, mdl) => {
                     return next();
                 });
                 schemaObject[schemaName].pre("updateOne", function (next) {
-                    if (config.forceDate || !this.LastUpdateDate)
+                    if (forceDate || !this.LastUpdateDate)
                         this.LastUpdateDate = new Date();
 
                     this.Saved = true;
@@ -341,7 +348,7 @@ module.exports = (app, mdl) => {
                     return next();
                 });
                 schemaObject[schemaName].pre("updateMany", function (next) {
-                    if (config.forceDate || !this.LastUpdateDate)
+                    if (forceDate || !this.LastUpdateDate)
                         this.LastUpdateDate = new Date();
 
                     this.Saved = true;
@@ -350,10 +357,10 @@ module.exports = (app, mdl) => {
                 });
 
                 schemaObject[schemaName].pre("create", function (next) {
-                    if (config.forceDate || !this.CreatedDate)
+                    if (forceDate || !this.CreatedDate)
                         this.CreatedDate = new Date();
 
-                    if (config.forceDate || !this.LastUpdateDate)
+                    if (forceDate || !this.LastUpdateDate)
                         this.LastUpdateDate = new Date();
 
                     return next();
