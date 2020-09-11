@@ -13,86 +13,86 @@ mongoose.set('useUnifiedTopology', true);
  *
  * @constructor
  */
-const _updateIndexes = async function (app, db) {
-    const models = Object.keys(db.models);
-    let errorMsg = '';
-    for (let i = 0; i < models.length; i += 1) {
-        let allFields = [];
-        let model = db.models[models[i]];
-        // 获取数据库定义中的索引
-        let index = [];
+// const _updateIndexes = async function (app, db) {
+//     const models = Object.keys(db.models);
+//     let errorMsg = '';
+//     for (let i = 0; i < models.length; i += 1) {
+//         let allFields = [];
+//         let model = db.models[models[i]];
+//         // 获取数据库定义中的索引
+//         let index = [];
 
-        const CheckFields = function (m) {
-            const keys = Object.keys(m.schema.paths) || [];
-            for (let i = 0; i < keys.length; i += 1) {
-                let p = keys[i];
-                let pp = m.schema.paths[p];
-                if (pp._index !== null) {
-                    // pp._index.Name = p;
-                    // index.push(pp._index);
-                    // index.push(pp.path);
-                    index.push(pp);
-                }
+//         const CheckFields = function (m) {
+//             const keys = Object.keys(m.schema.paths) || [];
+//             for (let i = 0; i < keys.length; i += 1) {
+//                 let p = keys[i];
+//                 let pp = m.schema.paths[p];
+//                 if (pp._index !== null) {
+//                     // pp._index.Name = p;
+//                     // index.push(pp._index);
+//                     // index.push(pp.path);
+//                     index.push(pp);
+//                 }
 
-                if (pp.schema && pp.schema.paths) {
-                    CheckFields(pp);
-                }
+//                 if (pp.schema && pp.schema.paths) {
+//                     CheckFields(pp);
+//                 }
 
-                // 同一个数据库表中，字段不能重复，除了数组（）。
-                if (allFields.indexOf(pp.path) >= 0 &&
-                    allFields.indexOf(pp.path) !== allFields.lastIndexOf(pp.path) &&
-                    pp.path !== '_id' &&
-                    m.instance !== 'Array') {
-                    throw '数据表' + m.modelName + '存在重复的字段名' + pp.path;
-                }
-                else {
-                    allFields.push(pp.path);
-                }
-            }
-        };
+//                 // 同一个数据库表中，字段不能重复，除了数组（）。
+//                 if (allFields.indexOf(pp.path) >= 0 &&
+//                     allFields.indexOf(pp.path) !== allFields.lastIndexOf(pp.path) &&
+//                     pp.path !== '_id' &&
+//                     m.instance !== 'Array') {
+//                     throw '数据表' + m.modelName + '存在重复的字段名' + pp.path;
+//                 }
+//                 else {
+//                     allFields.push(pp.path);
+//                 }
+//             }
+//         };
 
-        CheckFields(model);
+//         CheckFields(model);
 
-        if (!index || index.length <= 0) continue;
+//         if (!index || index.length <= 0) continue;
 
-        // 获取数据库实际所有的索引
-        let rIndex = 0;
-        try {
-            rIndex = await ((model.collection).indexes());
-        } catch (e) {
-            app.logger.error(e.stack);
-        }
-        if (!rIndex || rIndex.length < 0) continue;
+//         // 获取数据库实际所有的索引
+//         let rIndex = 0;
+//         try {
+//             rIndex = await ((model.collection).indexes());
+//         } catch (e) {
+//             app.logger.error(e.stack);
+//         }
+//         if (!rIndex || rIndex.length < 0) continue;
 
-        for (let j = 0; j < rIndex.length; j += 1) {
-            // TODO: 假设索引中只有一个key，目前没问题，但以后有风险！
-            const key = Object.keys(rIndex[j].key)[0];
-            if (key === '_id') continue;
-            const index_ind = index.findIndex((pp) => { return pp.path === key; });
-            if (index_ind >= 0) {
-                index.splice(index_ind, 1);
-                continue;
-            }
+//         for (let j = 0; j < rIndex.length; j += 1) {
+//             // TODO: 假设索引中只有一个key，目前没问题，但以后有风险！
+//             const key = Object.keys(rIndex[j].key)[0];
+//             if (key === '_id') continue;
+//             const index_ind = index.findIndex((pp) => { return pp.path === key; });
+//             if (index_ind >= 0) {
+//                 index.splice(index_ind, 1);
+//                 continue;
+//             }
 
-            // 删除已经不存在的index
-            await model.collection.dropIndex(rIndex[j].name);
-        }
+//             // 删除已经不存在的index
+//             await model.collection.dropIndex(rIndex[j].name);
+//         }
 
-        // 到这里，如果index列表里还有，说明需要添加新index，但不能自动添加，因为生产环境会影响性能。提示去手动添加。
-        if (index.length > 0) {
-            errorMsg = errorMsg || (model.modelName + ' 需要手动创建索引: \n');
-            for (let k = 0; k < index.length; ++k) {
-                const ind = index[k];
-                errorMsg += 'db.' + model.collection.name + '.createIndex({' + ind.path + ': 1}, {unique: ' + !!ind._index.unique + ', sparse: ' + !!ind._index.sparse + '})\n';
-            }
-        }
-    }
+//         // 到这里，如果index列表里还有，说明需要添加新index，但不能自动添加，因为生产环境会影响性能。提示去手动添加。
+//         if (index.length > 0) {
+//             errorMsg = errorMsg || (model.modelName + ' 需要手动创建索引: \n');
+//             for (let k = 0; k < index.length; ++k) {
+//                 const ind = index[k];
+//                 errorMsg += 'db.' + model.collection.name + '.createIndex({' + ind.path + ': 1}, {unique: ' + !!ind._index.unique + ', sparse: ' + !!ind._index.sparse + '})\n';
+//             }
+//         }
+//     }
 
-    if (errorMsg) {
-        app.logger.error(errorMsg);
-        process.exit(-1);
-    }
-};
+//     if (errorMsg) {
+//         app.logger.error(errorMsg);
+//         process.exit(-1);
+//     }
+// };
 
 module.exports = (app, mdl) => {
     const config = mdl.config;
@@ -112,6 +112,91 @@ module.exports = (app, mdl) => {
     let db = mongoose.connection;
     db.tryConnect = tryConnect;
 
+    db.validateSchema = async function () {
+        if (!db) {
+            throw 'Not connected tot he db yet!';
+        }
+
+        const models = Object.keys(db.models);
+        let errorMsg = '';
+        for (let i = 0; i < models.length; i += 1) {
+            let allFields = [];
+            let model = db.models[models[i]];
+            // 获取数据库定义中的索引
+            let index = [];
+
+            const CheckFields = function (m) {
+                const keys = Object.keys(m.schema.paths) || [];
+                for (let i = 0; i < keys.length; i += 1) {
+                    let p = keys[i];
+                    let pp = m.schema.paths[p];
+                    if (pp._index !== null) {
+                        // pp._index.Name = p;
+                        // index.push(pp._index);
+                        // index.push(pp.path);
+                        index.push(pp);
+                    }
+
+                    if (pp.schema && pp.schema.paths) {
+                        CheckFields(pp);
+                    }
+
+                    // 同一个数据库表中，字段不能重复，除了数组（）。
+                    if (allFields.indexOf(pp.path) >= 0 &&
+                        allFields.indexOf(pp.path) !== allFields.lastIndexOf(pp.path) &&
+                        pp.path !== '_id' &&
+                        m.instance !== 'Array') {
+                        throw '数据表' + m.modelName + '存在重复的字段名' + pp.path;
+                    }
+                    else {
+                        allFields.push(pp.path);
+                    }
+                }
+            };
+
+            CheckFields(model);
+
+            if (!index || index.length <= 0) continue;
+
+            // 获取数据库实际所有的索引
+            let rIndex = 0;
+            try {
+                rIndex = await ((model.collection).indexes());
+            } catch (e) {
+                app.logger.error(e.stack);
+            }
+            if (!rIndex || rIndex.length < 0) continue;
+
+            for (let j = 0; j < rIndex.length; j += 1) {
+                // TODO: 假设索引中只有一个key，目前没问题，但以后有风险！
+                const key = Object.keys(rIndex[j].key)[0];
+                if (key === '_id') continue;
+                const index_ind = index.findIndex((pp) => { return pp.path === key; });
+                if (index_ind >= 0) {
+                    index.splice(index_ind, 1);
+                    continue;
+                }
+
+                // 删除已经不存在的index
+                await model.collection.dropIndex(rIndex[j].name);
+            }
+
+            // 到这里，如果index列表里还有，说明需要添加新index，但不能自动添加，因为生产环境会影响性能。提示去手动添加。
+            if (index.length > 0) {
+                errorMsg = errorMsg || (model.modelName + ' 需要手动创建索引: \n');
+                for (let k = 0; k < index.length; ++k) {
+                    const ind = index[k];
+                    errorMsg += 'db.' + model.collection.name + '.createIndex({' + ind.path + ': 1}, {unique: ' + !!ind._index.unique + ', sparse: ' + !!ind._index.sparse + '})\n';
+                }
+            }
+        }
+
+        if (errorMsg) {
+            app.logger.error(errorMsg);
+            process.exit(-1);
+        }
+    };
+
     db.on('error', (err) => {
         app.logger.error('连接数据库失败!! ' + err);
     });
@@ -129,7 +214,7 @@ module.exports = (app, mdl) => {
 
         try {
             app.logger.info('重建数据库索引……');
-            await _updateIndexes(app, db);
+            await db.validateSchema();
             app.logger.info('重建数据库索引成功！');
 
             // if (Config.Version !== app.ctx.version) {
