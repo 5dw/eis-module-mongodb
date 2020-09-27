@@ -297,7 +297,7 @@ module.exports = (app, mdl) => {
             d['Deleted'] || (d['Deleted'] = { type: "Boolean", default: false });
 
             // change the data type according to the string
-            function processFieldSchema(d) {
+            function processFieldSchema (d) {
                 Object.keys(d).forEach(dk => {
                     if (d[dk] && d[dk].type && typeof d[dk].type === 'string') {
                         switch (d[dk].type.toLowerCase()) {
@@ -380,7 +380,7 @@ module.exports = (app, mdl) => {
         const modelList = mList || mdl.models;
         let forceDate;
 
-        if(mdl && mdl.config && typeof mdl.config.forceDate === 'boolean'){
+        if (mdl && mdl.config && typeof mdl.config.forceDate === 'boolean') {
             forceDate = mdl.config.forceDate;
         } else {
             forceDate = config.forceDate;
@@ -465,7 +465,7 @@ module.exports = (app, mdl) => {
         })
     };
 
-    async function _dataProcessMiddleware(req, res, next) {
+    async function _dataProcessMiddleware (req, res, next) {
         if (!res.locals.CURD || res.locals.CURD.length <= 0) return next();
         if (res.locals.err) return next();
 
@@ -516,7 +516,8 @@ module.exports = (app, mdl) => {
             }
         }
 
-        return next();
+        if (!res.locals.NONEXT)
+            return next();
     }
 
     db.dataProcessMiddleware = _dataProcessMiddleware;
