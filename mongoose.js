@@ -1,3 +1,5 @@
+const path = require("path");
+const express = require(path.resolve('./') + "/node_modules/express");
 const mongoose = require('mongoose');
 const mongoosePaginate = require("mongoose-paginate");
 const beautifyUnique = require("mongoose-beautiful-unique-validation");
@@ -593,8 +595,7 @@ module.exports = (app, mdl) => {
             }
         };
     }
-
-    const express = require('express');
+    
     const _expressRouter = express.Router;
     express.Router = function () {
         let router = _expressRouter();
