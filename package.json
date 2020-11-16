@@ -9,7 +9,7 @@
   "dependencies": {
     "mongoose": "^5.7.7",
     "mongoose-beautiful-unique-validation": "^7.1.1",
-    "mongoose-extend-schema": "^1.0.0",
+    "mongoose-extend-schema": "^1.0.0"
   },
   "repository": "git@gitlab.com:eis-modules/eis-module-mongodb.git"
 }
