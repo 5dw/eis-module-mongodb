@@ -285,6 +285,11 @@ module.exports = (app) => {
                         foundData = foundData.sort(options.sort)
                     else
                         foundData = foundData.sort({ LastUpdateDate: 'desc' })
+                        
+                    if (options.limit)
+                        foundData = foundData.limit(options.limit)
+                    if (options.skip)
+                        foundData = foundData.skip(options.skip)
 
                     foundData = await foundData;
 
