@@ -1,7 +1,6 @@
 const path = require("path");
 const express = require(path.resolve('./') + "/node_modules/express");
 const mongoose = require('mongoose');
-// const mongoosePaginate = require("mongoose-paginate");
 const mongoosePaginate = require("./paginate.js");
 const beautifyUnique = require("mongoose-beautiful-unique-validation");
 
