@@ -1,6 +1,7 @@
 const path = require("path");
 const express = require(path.resolve('./') + "/node_modules/express");
 const mongoose = require('mongoose');
+// const mongoosePaginate = require("mongoose-paginate");
 const mongoosePaginate = require("./paginate.js");
 const beautifyUnique = require("mongoose-beautiful-unique-validation");
 
@@ -129,8 +130,8 @@ module.exports = (app, mdl) => {
 
             const CheckFields = function (m) {
                 const keys = Object.keys(m.schema.paths) || [];
-                for (let i = 0; i < keys.length; i += 1) {
-                    let p = keys[i];
+                for (let j = 0; j < keys.length; j += 1) {
+                    let p = keys[j];
                     let pp = m.schema.paths[p];
                     if (pp._index !== null) {
                         // pp._index.Name = p;
@@ -154,6 +155,20 @@ module.exports = (app, mdl) => {
                         allFields.push(pp.path);
                     }
                 }
+
+                // custimized indexes
+                if (m.schema._indexes) {
+                    for (let j = 0; j < m.schema._indexes.length; j += 1) {
+                        const _ind = m.schema._indexes[j];
+
+                        if (_ind && Array.isArray(_ind) && _ind[0]) {
+                            index.push({
+                                path: _ind[0],
+                                _index: _ind[1] || {}
+                            });
+                        }
+                    }
+                }
             };
 
             CheckFields(model);
@@ -171,9 +186,38 @@ module.exports = (app, mdl) => {
 
             for (let j = 0; j < rIndex.length; j += 1) {
                 // TODO: 假设索引中只有一个key，目前没问题，但以后有风险！
-                const key = Object.keys(rIndex[j].key)[0];
-                if (key === '_id') continue;
-                const index_ind = index.findIndex((pp) => { return pp.path === key; });
+                // const key = Object.keys(rIndex[j].key)[0];
+                // if (key === '_id') continue;
+                // const index_ind = index.findIndex((pp) => { return pp.path === key; });
+                // if (index_ind >= 0) {
+                //     index.splice(index_ind, 1);
+                //     continue;
+                // }
+
+                const keys = Object.keys(rIndex[j].key);
+                if (keys && keys.length === 1 && keys[0] === '_id') continue;
+                const index_ind = index.findIndex((pp) => {
+                    if (typeof pp.path === 'string' && keys.length === 1) {
+                        return pp.path === keys[0];
+                    } else if (typeof pp.path === 'object' && keys.length > 1) {
+                        const defKeys = Object.keys(pp.path);
+                        const dupKeys = [];
+                        for (let k = 0; k < keys.length; k += 1) {
+                            const key = keys[k];
+
+                            if (defKeys.indexOf(key) >= 0) {
+                                dupKeys.push(key);
+                            }
+                        }
+
+                        if (defKeys.length === dupKeys.length) {
+                            return true;
+                        }
+                        return false;
+                    } else {
+                        return false;
+                    }
+                });
                 if (index_ind >= 0) {
                     index.splice(index_ind, 1);
                     continue;
@@ -188,7 +232,7 @@ module.exports = (app, mdl) => {
                 errorMsg = errorMsg || (model.modelName + ' 需要手动创建索引: \n');
                 for (let k = 0; k < index.length; ++k) {
                     const ind = index[k];
-                    errorMsg += 'db.' + model.collection.name + '.createIndex({' + ind.path + ': 1}, {unique: ' + !!ind._index.unique + ', sparse: ' + !!ind._index.sparse + '})\n';
+                    errorMsg += 'db.' + model.collection.name + '.createIndex(' + (typeof ind.path === 'string' ? `{' + ${ind.path} + ': 1}` : JSON.stringify(ind.path)) + ', {unique: ' + !!ind._index.unique + ', sparse: ' + !!ind._index.sparse + '})\n';
                 }
             }
         }
@@ -333,7 +377,11 @@ module.exports = (app, mdl) => {
                         }
                     } else if (Array.isArray(d[dk])) {
                         // is an array
-                        d[dk].forEach(da => processFieldSchema(da));
+                        if (dk === '__Indexes' || dk === '__Virtuals') {
+                            //
+                        } else {
+                            d[dk].forEach(da => processFieldSchema(da));
+                        }
                     } else if (typeof d[dk] === 'object') {
                         // nested object
                         Object.keys(d[dk]).forEach(ndk => {
@@ -371,7 +419,7 @@ module.exports = (app, mdl) => {
 
             // attach the model to the application.
             app.models[k] = model;
-        })
+        });
     };
 
     /**
@@ -398,10 +446,45 @@ module.exports = (app, mdl) => {
                 // generate the db model
                 const schemaName = `${mk}Schema`;
                 const schemaObject = {};
+
+                // indexes
+                let INDEXES = model.schemaDefinition.__Indexes;
+                if (INDEXES && Array.isArray(INDEXES)) {
+                    delete model.schemaDefinition.__Indexes;
+                }
+                INDEXES = INDEXES || [];
+
+                // virtuals
+                let VIRTUALS = model.schemaDefinition.__Virtuals;
+                if (VIRTUALS && Array.isArray(VIRTUALS)) {
+                    delete model.schemaDefinition.__Virtuals;
+                }
+                VIRTUALS = VIRTUALS || [];
+
                 schemaObject[schemaName] = new mongoose.Schema(model.schemaDefinition, { __v: false });
 
+                // indexes
+                for (let i = 0; i < INDEXES.length; i += 1) {
+                    const ind = INDEXES[i];
+
+                    if (ind && ind.def) {
+                        schemaObject[schemaName].index(ind.def, ind.set || {});
+                    }
+                }
+
+                // virtuals
+                for (let i = 0; i < VIRTUALS.length; i += 1) {
+                    const virt = VIRTUALS[i];
+
+                    if (virt && virt.name) {
+                        schemaObject[schemaName].virtual(virt.name).get(virt.get || (() => { })).set(virt.set || (() => { }));
+                    }
+                }
+
                 schemaObject[schemaName].plugin(mongoosePaginate);
-                schemaObject[schemaName].plugin(beautifyUnique);
+                schemaObject[schemaName].plugin(beautifyUnique, {
+                    defaultMessage: envConfig.defaultBeautifyUniqueMessage || 'The field is not unique!'
+                });
 
                 /**
                  * 在更新数据文档时自动设置LastUpdateDate到当前的时间，这样其他代码中就不需要再特别设置此数据。
@@ -595,7 +678,7 @@ module.exports = (app, mdl) => {
             }
         };
     }
-    
+
     const _expressRouter = express.Router;
     express.Router = function () {
         let router = _expressRouter();

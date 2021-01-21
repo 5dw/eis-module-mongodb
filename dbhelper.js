@@ -493,11 +493,11 @@ module.exports = (app) => {
 
                 try {
                     if (res.locals.filter && Object.keys(res.locals.filter).length) {
-                        await model.remove(res.locals.filter);
+                        await model.deleteMany(res.locals.filter);
                     }
                     else {
                         let id = req.params.id || req.body.id;
-                        await model.remove({ id });
+                        await model.deleteOne({ id });
                     }
                     // res.locals.data = {};
                     delete res.locals.filter;
