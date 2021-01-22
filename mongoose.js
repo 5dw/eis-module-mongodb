@@ -232,7 +232,7 @@ module.exports = (app, mdl) => {
                 errorMsg = errorMsg || (model.modelName + ' 需要手动创建索引: \n');
                 for (let k = 0; k < index.length; ++k) {
                     const ind = index[k];
-                    errorMsg += 'db.' + model.collection.name + '.createIndex(' + (typeof ind.path === 'string' ? `{' + ${ind.path} + ': 1}` : JSON.stringify(ind.path)) + ', {unique: ' + !!ind._index.unique + ', sparse: ' + !!ind._index.sparse + '})\n';
+                    errorMsg += 'db.' + model.collection.name + '.createIndex(' + (typeof ind.path === 'string' ? `{'${ind.path}': 1}` : JSON.stringify(ind.path)) + ', {unique: ' + !!ind._index.unique + ', sparse: ' + !!ind._index.sparse + '})\n';
                 }
             }
         }
