@@ -229,10 +229,16 @@ module.exports = (app, mdl) => {
 
             // 到这里，如果index列表里还有，说明需要添加新index，但不能自动添加，因为生产环境会影响性能。提示去手动添加。
             if (index.length > 0) {
-                errorMsg = errorMsg || (model.modelName + ' 需要手动创建索引: \n');
-                for (let k = 0; k < index.length; ++k) {
-                    const ind = index[k];
-                    errorMsg += 'db.' + model.collection.name + '.createIndex(' + (typeof ind.path === 'string' ? `{'${ind.path}': 1}` : JSON.stringify(ind.path)) + ', {unique: ' + !!ind._index.unique + ', sparse: ' + !!ind._index.sparse + '})\n';
+                // 如果系统设置允许自动创建索引，则自动创建，否则报错提醒开发人员手动创建
+                if (config.autoCreateIndexes) {
+                    app.logger.warning('自动创建索引：');
+                    model.createIndexes();
+                } else {
+                    errorMsg = errorMsg || (model.modelName + ' 需要手动创建索引: \n');
+                    for (let k = 0; k < index.length; ++k) {
+                        const ind = index[k];
+                        errorMsg += 'db.' + model.collection.name + '.createIndex(' + (typeof ind.path === 'string' ? `{'${ind.path}': 1}` : JSON.stringify(ind.path)) + ', {unique: ' + !!ind._index.unique + ', sparse: ' + !!ind._index.sparse + '})\n';
+                    }
                 }
             }
         }
