@@ -231,7 +231,7 @@ module.exports = (app, mdl) => {
             if (index.length > 0) {
                 // 如果系统设置允许自动创建索引，则自动创建，否则报错提醒开发人员手动创建
                 if (config.autoCreateIndexes) {
-                    app.logger.warning('自动创建索引：');
+                    app.logger.warn(`自动创建索引：${model.collection.name}: ${index.map(idx => JSON.stringify(idx.path))}`);
                     model.createIndexes();
                 } else {
                     errorMsg = errorMsg || (model.modelName + ' 需要手动创建索引: \n');
