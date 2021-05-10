@@ -29,5 +29,35 @@ module.exports = {
                 p
             ]
         };
+    },
+    MergeQueryFilter: (...filters) => {
+        if(!filters || !Array.isArray(filters) || filters.length <= 0) return {};
+
+        const ret = {};
+        for (let i = 0; i < filters.length; i += 1) {
+            const filter = filters[i];
+        
+            for (let j = 0; j < Object.keys(filter).length; j += 1) {
+                const fk = Object.keys(filter)[j];
+            
+                if(fk === '$and') {
+                    if(ret.$and) {
+                        ret.$and = ret.$and.concat(filter[fk]);
+                    } else {
+                        ret.$and = filter[fk];
+                    }
+                } else if (fk === '$or') {
+                    if (ret.$and) {
+                        ret.$and = ret.$and.push({$or: filter[fk]});
+                    } else {
+                        ret.$and = [{ $or: filter[fk] }];
+                    }
+                } else {
+                    ret[fk] = filter[fk];
+                }
+            }
+        }
+
+        return ret;
     }
 }
