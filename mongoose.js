@@ -542,6 +542,18 @@ module.exports = (app, mdl) => {
                     return next();
                 });
 
+                // customized hooks
+                const cusHooks = model.hooks || (app.__modelHooks && app.__modelHooks[mk]) || [];
+                cusHooks.forEach(hook => {
+                    if(!hook || !hook.hook || !hook.method || !hook.func) return;
+
+                    if(hook.hook === 'post') {
+                        schemaObject[schemaName].post(hook.method, hook.options, hook.func);
+                    } else if(hook.hook === 'pre') {
+                        schemaObject[schemaName].pre(hook.method, hook.options, hook.func);
+                    }
+                });
+
                 // const newModel = mongoose.model(`${mdl.name}_${mk}`, schemaObject[schemaName]);
                 const newModel = mongoose.model(mk, schemaObject[schemaName]);
 
