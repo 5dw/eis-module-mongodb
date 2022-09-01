@@ -1,6 +1,6 @@
 {
   "name": "eis-module-mongodb",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "description": "The built-in mongodb (mongoose) driver module of EIS.",
   "main": "index.js",
   "author": "zhiquan",
